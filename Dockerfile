@@ -52,14 +52,19 @@ RUN mkdir -p /var/run/postgresql && chown -R postgres /var/run/postgresql
 ENV PATH /usr/lib/postgresql/$PG_MAJOR/bin:$PATH
 ENV PGDATA /var/lib/postgresql/data
 
-VOLUME /var/lib/postgresql/data
-
+###################
+##
+## Get DalmatinerDB
+##
+###################
 ENV DDB_VSN=dev
 ENV DDB_PATH=/ddb
-## Get DalmatinerDB
+ENV DDB_REF=e7d5f7e0f74448d61d6164e42a2952614de98279
+
 RUN cd / \
     && env GIT_SSL_NO_VERIFY=true git clone -b $DDB_VSN http://github.com/dalmatinerdb/dalmatinerdb.git dalmatinerdb.git \
     && cd dalmatinerdb.git \
+    && env GIT_SSL_NO_VERIFY=true git checkout $DDB_REF \
     && make rel \
     && mv /dalmatinerdb.git/_build/prod/rel/ddb $DDB_PATH \
     && rm -rf /dalmatinerdb.git \
@@ -71,12 +76,21 @@ RUN cd / \
     && sed -i -e '/RUNNER_USER=dalmatiner/d' $DDB_PATH/bin/ddb \
     && sed -i -e '/RUNNER_USER=dalmatiner/d' $DDB_PATH/bin/ddb-admin
 
+
+###################
+##
+## Get DalmatinerFE
+##
+###################
+
 ENV DFE_VSN=dev
 ENV DFE_PATH=/dalmatinerfe
-## Get DalmatinerFE
+ENV DFE_REF=d18730b07ae3c9ed344465d9824bcd2331524aad
+
 RUN cd / \
     && env GIT_SSL_NO_VERIFY=true git clone -b $DFE_VSN http://github.com/dalmatinerdb/dalmatiner-frontend.git dalmatiner-frontend.git \
     && cd dalmatiner-frontend.git \
+    && env GIT_SSL_NO_VERIFY=true git checkout $DFE_REF \
     && make rel \
     && cp /dalmatiner-frontend.git/_build/prod/lib/dqe_idx_pg/priv/schema.sql /docker-entrypoint-initdb.d/ \
     && mv /dalmatiner-frontend.git/_build/prod/rel/dalmatinerfe $DFE_PATH \
@@ -90,13 +104,20 @@ RUN cd / \
     && sed -i -e '/RUNNER_USER=dalmatiner/d' $DFE_PATH/bin/dalmatinerfe \
     && sed -i -e 's/idx.backend = dqe_idx_ddb/idx.backend = dqe_idx_pg/' /data/dalmatinerfe/etc/dalmatinerfe.conf 
 
+###################
+##
+## Get DDB Proxy
+##
+###################
+
 ENV DP_VSN=dev
 ENV DP_PATH=/ddb_proxy
+ENV DP_REF=b86b77a0d5f0aa4cb1e470ca15daba03b475edb7
 
-## Get DDB Proxy
 RUN cd / \
     && env GIT_SSL_NO_VERIFY=true git clone -b $DP_VSN http://github.com/dalmatinerdb/ddb_proxy.git ddb_proxy.git \
     && cd ddb_proxy.git \
+    && env GIT_SSL_NO_VERIFY=true git checkout $DP_REF \
     && make rel \
     && mv /ddb_proxy.git/_build/prod/rel/ddb_proxy $DP_PATH \
     && rm -rf $DP_PATH/lib/*/c_src \
@@ -121,8 +142,9 @@ RUN cd / \
     && echo "listeners.dp_prom_writer.protocol = http" >> /data/ddb_proxy/etc/ddb_proxy.conf \
     && sed -i -e '/RUNNER_USER=dalmatiner/d' $DP_PATH/bin/ddb_proxy
 
-VOLUME /data
 
+VOLUME /data
+VOLUME /var/lib/postgresql/data
 COPY docker-entrypoint.sh /
 
 EXPOSE 8080
